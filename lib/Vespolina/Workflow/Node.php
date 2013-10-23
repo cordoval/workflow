@@ -66,9 +66,8 @@ class Node implements NodeInterface
         $this->tokens[] = $token;
         $token->setLocation($this);
 
-        $success = true;
         try {
-            $success = $success && $this->preExecute($token);
+            $success = $this->preExecute($token);
             $success = $success && $this->execute($token);
             $success = $success && $this->postExecute($token);
             $success = $success && $this->cleanUp($token);
@@ -77,7 +76,32 @@ class Node implements NodeInterface
                 $this->workflow->addError($e->getMessage());
             }
 
-            return false;
+            $success = false;
+        }
+
+        return $success;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function resume(TokenInterface $token)
+    {
+        $message = 'Token resuming into ' . $this->getName();
+        $this->logger->info($message, array('token' => $token));
+        $token->setLocation($this);
+
+        try {
+            $success = $this->preExecute($token);
+            $success = $success && $this->execute($token);
+            $success = $success && $this->postExecute($token);
+            $success = $success && $this->cleanUp($token);
+        } catch (\Exception $e) {
+            if ($e instanceof ProcessingFailureException) {
+                $this->workflow->addError($e->getMessage());
+            }
+
+            $success = false;
         }
 
         return $success;
@@ -88,13 +112,13 @@ class Node implements NodeInterface
      */
     public function execute(TokenInterface $token)
     {
-        throw new \Exception('The execute method needs to be implement in your class');
+        throw new \Exception('The execute method needs to be implemented in your class');
     }
 
     /**
      * {@inheritdoc}
      */
-    public function addInput(Arc $arc)
+    public function addInput(ArcInterface $arc)
     {
         $this->inputs[] = $arc;
     }
@@ -110,7 +134,7 @@ class Node implements NodeInterface
     /**
      * {@inheritdoc}
      */
-    public function addOutput(Arc $arc)
+    public function addOutput(ArcInterface $arc)
     {
         $this->outputs[] = $arc;
     }
@@ -131,34 +155,54 @@ class Node implements NodeInterface
         return $this->tokens;
     }
 
+    /**
+     * @param TokenInterface $token
+     * @return boolean
+     */
     protected function cleanUp(TokenInterface $token)
     {
         return true;
     }
 
+    /**
+     * @param TokenInterface $token
+     * @return boolean
+     */
     protected function postExecute(TokenInterface $token)
     {
         return true;
     }
 
+    /**
+     * @param TokenInterface $token
+     * @return boolean
+     */
     protected function preExecute(TokenInterface $token)
     {
         return true;
     }
 
+    /**
+     * @param TokenInterface $token
+     * @return boolean
+     */
     protected function finalize(TokenInterface $token)
     {
+        // no outgoing arcs, means ending node, do not remove token, just return true
         if (!$outputs = $this->getOutputs()) {
             return true;
         }
+
+        // for all other cases remove token from node
         $this->removeToken($token);
-        // single out, no token clone, just update the node location
+
+        // single output, no token clone, just update the node location
         if (sizeof($outputs) == 1) {
             $output = array_shift($outputs);
             return $output->accept($token);
         }
 
-        // multiple outs, clone for each path, remove original token
+        // multiple outputs, clone for each path, remove original token
         $success = true;
         foreach ($outputs as $output) {
             $newToken = clone $token;
@@ -185,5 +229,7 @@ class Node implements NodeInterface
                 return true;
             }
         }
+
+        return false;
     }
 }
