@@ -79,31 +79,41 @@ class WorkflowTest extends \PHPUnit_Framework_TestCase
 
         $token = WorkflowCommon::createToken();
 
-        $workflow->resume($token);
+        $workflow->accept($token);
 
         $expectedFirst = array(
             'Token accepted into workflow',
             'Token accepted into workflow.start',
             'Token accepted into Vespolina\Tests\Functional\AutoA',
             'Token accepted into Vespolina\Workflow\Place',
+            'Token accepted into Vespolina\Tests\Functional\ManualB',
         );
 
-        foreach ($expected as $logEntry) {
+        $notExpectedFirst = array(
+            'Token accepted into workflow.finish',
+        );
+
+        foreach ($expectedFirst as $logEntry) {
             $this->assertTrue($handler->hasInfo($logEntry));
         }
+        foreach ($notExpectedFirst as $logEntry) {
+            $this->assertFalse($handler->hasInfo($logEntry));
+        }
 
-        // affect somehow the task processing b so that it gets activated
+        // things have executed in ManualB however
+        // the token has not been put into the outputs with
+        // finalize method
 
-        // ?? some code here either affact execute or cleanup
+        // make it active token's node
 
-        $workflow->resume($token);
+        $workflow->resume();
 
         $expectedOnResume = array(
             'Token accepted into Vespolina\Tests\Functional\ManualB',
             'Token accepted into workflow.finish',
         );
 
-        foreach ($expected as $logEntry) {
+        foreach ($expectedOnResume as $logEntry) {
             $this->assertTrue($handler->hasInfo($logEntry));
         }
     }
@@ -142,8 +152,8 @@ class ManualB extends User
         return true;
     }
 
-    protected function cleanUp(TokenInterface $token)
-    {
-        return $this->finalize($token);
-    }
+//    protected function cleanUp(TokenInterface $token)
+//    {
+//        return $this->finalize($token);
+//    }
 }

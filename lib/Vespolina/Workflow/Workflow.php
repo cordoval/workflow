@@ -52,6 +52,28 @@ class Workflow
     }
 
     /**
+     * Triggers processing of current tokens
+     *
+     * @param TokenInterface|null $token
+     * @return boolean
+     */
+    public function resume($token = null)
+    {
+        if ($token != null) {
+            $token->setLocation($this->getStart());
+            $this->addToken($token);
+        }
+
+        $success = true;
+        foreach ($this->tokens as $token) {
+            $node = $token->getLocation();
+            $success = $success && $node->resume($token);
+        }
+
+        return $success;
+    }
+
+    /**
      * Return the arcs
      *
      * @return mixed
@@ -226,27 +248,6 @@ class Workflow
         }
 
         return false;
-    }
-
-    /**
-     * Triggers processing of current tokens
-     *
-     * @param TokenInterface|null $token
-     * @return boolean
-     */
-    public function resume($token = null)
-    {
-        if ($token != null) {
-            $this->addToken($token);
-        }
-
-        $success = true;
-        foreach ($this->tokens as $token) {
-            $node = $token->getLocation();
-            $success = $success && $node->resume($token);
-        }
-
-        return $success;
     }
 
     /**
